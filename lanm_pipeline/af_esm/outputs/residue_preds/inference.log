@@ -1,0 +1,10 @@
+2026-01-30 07:40:04,352 | INFO | Output path: lanm_pipeline/af_esm/outputs/residue_preds
+2026-01-30 07:40:05,051 | INFO | Test begins at 01-30 07:40
+2026-01-30 07:40:05,795 | INFO | load weights for fold 1 from lanm_pipeline/af_esm/src/ESMBind/multi_modal_binding/model/trained_weights
+2026-01-30 07:40:07,053 | INFO | load weights for fold 2 from lanm_pipeline/af_esm/src/ESMBind/multi_modal_binding/model/trained_weights
+2026-01-30 07:40:07,714 | INFO | load weights for fold 3 from lanm_pipeline/af_esm/src/ESMBind/multi_modal_binding/model/trained_weights
+2026-01-30 07:40:08,370 | INFO | load weights for fold 4 from lanm_pipeline/af_esm/src/ESMBind/multi_modal_binding/model/trained_weights
+2026-01-30 07:40:08,916 | INFO | load weights for fold 5 from lanm_pipeline/af_esm/src/ESMBind/multi_modal_binding/model/trained_weights
+2026-01-30 07:40:09,824 | INFO | Total # of test samples for is 15
+2026-01-30 07:40:12,695 | INFO | Test is done at 01-30 07:40
+2026-01-30 07:40:12,697 | INFO | Total time used: 8.5

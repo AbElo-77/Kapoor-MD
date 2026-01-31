@@ -1,0 +1,9 @@
+.venv/
+
+lanm_pipeline/mpnn/src/ProteinMPNN/
+lanm_pipeline/af_esm/src/alphafold/
+lanm_pipeline/af_esm/src/ESMBind/
+
+lanm_pipeline/af_esm/params/
+lanm_pipeline/af_esm/outputs/a3m/
+lanm_pipeline/af_esm/outputs/esm_embeds/

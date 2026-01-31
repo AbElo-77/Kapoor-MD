@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./lanm_pipeline/mpnn/src/ProteinMPNN", 
+    ]
+}
