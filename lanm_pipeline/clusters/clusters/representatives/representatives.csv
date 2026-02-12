@@ -1,0 +1,4 @@
+header,"clusters-(scd, q_net)",full_scd,loop_scd,full_net_q,loop_net_q,full_nu,loop_nu,selection_reason,scaffold_diff,q_dist
+532613b0c062,"(0, 0)",5.6441,0.4489,-17.0,-6.0,0.5698,0.4977,Best Mimic,,
+e2fa728f2ce4,"(0, 0)",3.6856,5.3269,-14.0,-16.0,0.5602,0.5359,Max Loop SCD,,
+f791f4c8361c,"(1, 1)",2.1503,1.541,-12.0,-9.0,0.5451,0.5034,Average Mimic,0.6093000000000002,11.0

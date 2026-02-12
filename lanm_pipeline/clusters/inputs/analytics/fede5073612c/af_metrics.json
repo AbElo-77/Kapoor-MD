@@ -1,0 +1,15 @@
+{
+    "id": "fede5073612c",
+    "fasta_path": "lanm_pipeline/mpnn/outputs/fastas/fede5073612c.fa",
+    "length": 143,
+    "mean_plddt": 88.8498306274414,
+    "num_plddt_abv_80": 140,
+    "min_plddt": 57.61174011230469,
+    "mean_pae": 15.649580955505371,
+    "rmsd": 7.837797393338279,
+    "rmsd_plddt_abv_80": 1.869743646292501,
+    "ref_pdb": "lanm_pipeline/mpnn/src/pdb/3CLN.pdb",
+    "model": "model_3_ptm",
+    "num_recycle": 12,
+    "max_len": 143
+}

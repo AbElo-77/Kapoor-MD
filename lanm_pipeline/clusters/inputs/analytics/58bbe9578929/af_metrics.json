@@ -1,0 +1,15 @@
+{
+    "id": "58bbe9578929",
+    "fasta_path": "lanm_pipeline/mpnn/outputs/fastas/58bbe9578929.fa",
+    "length": 143,
+    "mean_plddt": 88.97994995117188,
+    "num_plddt_abv_80": 141,
+    "min_plddt": 70.59149169921875,
+    "mean_pae": 16.033674240112305,
+    "rmsd": 7.756412335658828,
+    "rmsd_plddt_abv_80": 1.800447254239032,
+    "ref_pdb": "lanm_pipeline/mpnn/src/pdb/3CLN.pdb",
+    "model": "model_3_ptm",
+    "num_recycle": 12,
+    "max_len": 143
+}

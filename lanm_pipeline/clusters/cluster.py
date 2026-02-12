@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from Bio.PDB import PDBParser
+from Bio.PDB.DSSP import DSSP
+
 import numpy as np
 import argparse
 
@@ -67,6 +70,24 @@ def read_fasta(fasta_path: Path) -> List[Tuple[str, str]]:
 
 # --------------------------------------------
 
+def _dssp(header: str, PDB_PATH) -> int: 
+    pdb = PDB_PATH / header / "predicted.pdb"
+
+    p = PDBParser()
+    structure = p.get_structure("ID", pdb)
+    model = structure[0]
+    dssp = DSSP(model, pdb, dssp="mkdssp", file_type="PDB")
+
+    total = len(dssp)
+
+    ss_codes = [res[2] for res in dssp]
+    helix = ss_codes.count('H') / total
+    sheet = ss_codes.count('E') / total
+    loop = (ss_codes.count('-') + ss_codes.count('C')) / total
+    
+    features = [helix, sheet, loop]
+    return features
+
 def seq_to_charge_lambda(seq: str) -> Tuple[np.ndarray, np.ndarray]:
     n = len(seq)
     q = np.zeros(n, dtype=np.float64)
@@ -120,8 +141,11 @@ class Result:
     abs_q: float
     f_pos: float
     f_neg: float
+    helix_percent: float
+    sheet_percent: float
+    loop_percent: float
 
-def compute_result(header: str, seq: str) -> Result:
+def compute_result(header: str, seq: str, pdb_path: Path) -> Result:
     q, lam = seq_to_charge_lambda(seq)
     scd_val = scd_fft(q)
     shd_val = shd(lam)
@@ -132,6 +156,8 @@ def compute_result(header: str, seq: str) -> Result:
     f_pos = float(q[q > 0].sum())
     f_neg = float(q[q < 0].sum()) 
     mean_lambda = float(lam.mean())
+
+    dssp = _dssp(header, pdb_path)
 
     return Result(
         header=header,
@@ -144,16 +170,30 @@ def compute_result(header: str, seq: str) -> Result:
         abs_q=abs_q,
         f_pos=f_pos,
         f_neg=f_neg,
+        helix_percent=dssp[0], 
+        sheet_percent=dssp[1], 
+        loop_percent=dssp[2]
     )
 
 # --------------------------------------------
 
-def cluster_rows(rows: List[Result], k: int, seed: int = 0) -> np.ndarray:
+def cluster_rows(rows: List[Result], k: int, seed: int = 0, val: string = "scd") -> np.ndarray:
 
-    X = np.array([
-        [r.scd, r.shd, r.nu, r.mean_lambda, r.net_q, r.abs_q, r.length]
-        for r in rows
-    ], dtype=np.float64)
+    if val == "scd":
+        X = np.array([
+            [r.scd]
+            for r in rows
+        ], dtype=np.float64)
+    if val == "q_net":
+        X = np.array([
+            [r.net_q]
+            for r in rows
+        ], dtype=np.float64)
+    if val == "dssp":
+        X = np.array([
+            [r.helix_percent, r.sheet_percent, r.loop_percent]
+            for r in rows
+        ], dtype=np.float64)
 
     Xs = StandardScaler().fit_transform(X)
 
@@ -172,12 +212,13 @@ def cluster_rows(rows: List[Result], k: int, seed: int = 0) -> np.ndarray:
 def write_table(out_csv: Path, rows: List[Result], labels: np.ndarray) -> None:
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w") as f:
-        f.write("header,cluster,length,scd,shd,nu,mean_lambda,net_q,abs_q,f_pos,f_neg\n")
+        f.write("header,cluster,length,scd,shd,nu,mean_lambda,net_q,abs_q,f_pos,f_neg,helix_percent,sheet_percent,loop_percent\n")
         for r, c in zip(rows, labels):
             f.write(
                 f"{r.header},{int(c)},{r.length},"
                 f"{r.scd:.6f},{r.shd:.6f},{r.nu:.6f},{r.mean_lambda:.6f},"
-                f"{r.net_q:.3f},{r.abs_q:.3f},{r.f_pos:.3f},{r.f_neg:.3f}\n"
+                f"{r.net_q:.3f},{r.abs_q:.3f},{r.f_pos:.3f},{r.f_neg:.3f},{r.helix_percent:.3f},"
+                f"{r.sheet_percent:.3f}, {r.loop_percent:.3f}\n"
             )
 
 # --------------------------------------------
@@ -185,11 +226,13 @@ def write_table(out_csv: Path, rows: List[Result], labels: np.ndarray) -> None:
 def main():
 
     FASTA: Path = Path("lanm_pipeline/clusters/inputs/top_seqs.fa")
-    OUT_CSV: Path = Path("lanm_pipeline/clusters/scd_clusters/clustered.csv")
-    K = 2
+    PDB_PATH: Path = Path("lanm_pipeline/af_esm/outputs/structure_preds")
+    OUT_CSV: Path = Path("lanm_pipeline/clusters/clusters")
+    K = 3
 
     argparser = argparse.ArgumentParser(description="Cluster sequences using SCD/SHD descriptors.")
     argparser.add_argument("--fasta", default=FASTA, type=Path, help="FASTAs of sequences to cluster.")
+    argparser.add_argument("--pdb_path", default=PDB_PATH, type=Path, help="PDB output folder.")
     argparser.add_argument("--out_csv", default=OUT_CSV, type=Path, help="Output CSV with descriptors + cluster labels.")
     argparser.add_argument("--k", type=int, default=K, help="Number of clusters for MiniBatchKMeans.")
     args = argparser.parse_args()
@@ -200,10 +243,12 @@ def main():
 
     rows: List[Result] = []
     for header, seq in read_fasta(FASTA):
-        rows.append(compute_result(header, seq))
-
-    labels = cluster_rows(rows, k=K, seed=0)
-    write_table(OUT_CSV, rows, labels)
+        rows.append(compute_result(header, seq, PDB_PATH))
+    
+    clusters = ["scd", "q_net", "dssp"]
+    for val in clusters:
+        labels = cluster_rows(rows, k=K, seed=0, val=val)
+        write_table(OUT_CSV / (val + ".csv"), rows, labels)
 
 
 if __name__ == "__main__":

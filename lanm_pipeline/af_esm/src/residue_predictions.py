@@ -143,7 +143,8 @@ def main(
     fasta_dir: Path,
     af_out_root: Path,
     workdir: Path,
-    ion: str = "CA",
+    ion: str,
+    cutoff: float
 ):
     
     fasta_path, pdb_dir = build_inputs(fasta_dir, af_out_root, workdir)
@@ -167,7 +168,7 @@ def main(
     for seq_id, preds in preds['CA'].items():
         binding_sites = [i for i, p in enumerate(preds) if p > 0.5]
     
-        if len(binding_sites) < 10 or float(np.mean([preds[i] for i in binding_sites])) < 0.6:
+        if len(binding_sites) < 10 or float(np.mean([preds[i] for i in binding_sites])) < cutoff:
             continue
 
         metrics = {
@@ -191,6 +192,7 @@ if __name__ == "__main__":
     AF_ROOT  = "lanm_pipeline/af_esm/outputs/structure_preds/"
     WORK_DIR  = "lanm_pipeline/af_esm/esm_inputs/"
     ION = "CA"
+    CUTOFF = 0.95
 
     build_inputs(Path(FASTA_DIR), Path(AF_ROOT), Path(WORK_DIR))
 
@@ -199,12 +201,14 @@ if __name__ == "__main__":
     argparser.add_argument("--af_root", default=AF_ROOT, help="Path to AlphaFold output root directory")
     argparser.add_argument("--workdir", default=WORK_DIR, help="Path to working directory for ESMBind inputs/outputs")
     argparser.add_argument("--ion", default=ION, help="Ion type for binding site prediction")
+    argparser.add_argument("--probability_cutoff", type=float, default=CUTOFF, help="Ion type for binding site prediction")
 
     args = argparser.parse_args()
     FASTA_DIR = Path(args.fasta_dir)
     AF_ROOT = Path(args.af_root)
     WORK_DIR = Path(args.workdir)
     ION = args.ion
+    CUTOFF = args.probability_cutoff
 
-    preds, pkl_path = main(FASTA_DIR, AF_ROOT, WORK_DIR, ion=ION)
+    preds, pkl_path = main(FASTA_DIR, AF_ROOT, WORK_DIR, ion=ION, cutoff=CUTOFF)
     print("Loaded predictions from:", pkl_path)

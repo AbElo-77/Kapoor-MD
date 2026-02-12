@@ -5,5 +5,5 @@ lanm_pipeline/af_esm/src/alphafold/
 lanm_pipeline/af_esm/src/ESMBind/
 
 lanm_pipeline/af_esm/params/
-lanm_pipeline/af_esm/outputs/a3m/
-lanm_pipeline/af_esm/outputs/esm_embeds/
+lanm_pipeline/af_esm/outputs/
+lanm_pipeline/af_esm/esm_inputs

@@ -21,7 +21,8 @@ BATCH_SIZE = 1
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-DESIGNED_CHAINS = ["A", "B", "C", "D"]
+DESIGNED_CHAINS = ["A"]
+# DESIGNED_CHAINS = ["A", "B", "C", "D"]
 FIXED_CHAINS = []
 
 # -----------------------------------------------------------------
@@ -56,7 +57,7 @@ def main(PDB_PATH: str, OUT_DIR: str, NUM_SEQS: int, TEMPERATURE: float, SCORE_C
 
     protein = dataset[0]
 
-    fasta_path = os.path.join(OUT_DIR, "hans_mpnn.fasta")
+    fasta_path = os.path.join(OUT_DIR, "calmol_mpnn.fasta")
     fasta = open(fasta_path, "w")
 
     generated = 0
@@ -131,6 +132,7 @@ def main(PDB_PATH: str, OUT_DIR: str, NUM_SEQS: int, TEMPERATURE: float, SCORE_C
                 scores = _scores(S_sample[i], log_probs, mask[i]*chain_M[i]*chain_M_pos[i])
 
                 if scores > SCORE_CUTOFF:
+                    generated += 1
                     print(f"[MPNN] Dropped sequence with score {scores:.2f}")
                     continue
 

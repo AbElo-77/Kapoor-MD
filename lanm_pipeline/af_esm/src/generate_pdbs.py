@@ -1,5 +1,5 @@
 import argparse
-import os, re, json
+import os, re, json, shutil
 from pathlib import Path
 
 import subprocess
@@ -18,6 +18,9 @@ from Bio.PDB import PDBParser
 from Bio.PDB.Polypeptide import is_aa
 from Bio.SeqUtils import seq1
 from Bio.PDB.Superimposer import Superimposer
+
+nvcc_path = shutil.which("ptxas") or "/home/abdal/.local/lib/python3.12/site-packages/nvidia/cuda_nvcc/bin"
+os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={os.path.dirname(os.path.dirname(nvcc_path))}"
 
 # -----------------------------------------------------
 PARAMS_DIR = Path("lanm_pipeline/af_esm/params")
@@ -47,6 +50,7 @@ def read_fasta_one(path: Path) -> tuple[str, str]:
         
 def generate_a3m(fasta_dir: Path, out_root: Path) -> str:
     fasta_out = out_root.parent / "sequences.fasta"
+    a3m_dir = (out_root.parent / "a3m").resolve()
 
     with open(fasta_out, "w") as w:
         for fa in sorted(list(fasta_dir.rglob("*.fa"))):
@@ -63,8 +67,8 @@ def generate_a3m(fasta_dir: Path, out_root: Path) -> str:
     try: 
         subprocess.run([
             "colabfold_batch", 
-            str(fasta_out),
-            str(out_root.parent / "a3m"), 
+            fasta_out.as_posix(),
+            a3m_dir.as_posix(), 
             "--msa-only"], 
             check=True, 
             capture_output=True)
@@ -190,7 +194,7 @@ def save_pdb(outs, filename: Path):
         "plddt": get_plddt(outs),
         "chain_index": np.zeros(outs["seq"].shape[0], dtype=np.int32), 
     }
-    p = jax.tree_map(lambda x: x[: outs["length"]], p)
+    p = jax.tree.map(lambda x: x[: outs["length"]], p)
     b_factors = 100.0 * p.pop("plddt")[:, None] * p["atom_mask"]
     prot = alphafold_protein.Protein(**p, b_factors=b_factors)
     pdb_lines = alphafold_protein.to_pdb(prot)
@@ -294,7 +298,7 @@ def main(INPUT_DIR: Path, PDB_PATH: Path, OUT_ROOT: Path, CUT_OFF: float, CORE_T
     if not fastas:
         raise SystemExit(f"No Directory Found: {INPUT_DIR}")
     
-    # generate_a3m(INPUT_DIR, OUT_ROOT)
+    generate_a3m(INPUT_DIR, OUT_ROOT)
     runner = None
     params = None
     I = None
@@ -332,7 +336,7 @@ def main(INPUT_DIR: Path, PDB_PATH: Path, OUT_ROOT: Path, CUT_OFF: float, CORE_T
         O = None
         for _ in range(NUM_RECYCLE + 1):
             O = runner(I, params)
-            O = jax.tree_map(lambda x: np.asarray(x), O)
+            O = jax.tree.map(lambda x: np.asarray(x), O)
             I["prev"] = O["prev"]
 
         plddt = get_plddt(O)[:length] * 100.0
