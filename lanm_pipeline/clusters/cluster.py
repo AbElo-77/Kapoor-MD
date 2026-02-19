@@ -7,8 +7,14 @@ from typing import Dict, List, Tuple
 from Bio.PDB import PDBParser
 from Bio.PDB.DSSP import DSSP
 
+from Bio import AlignIO
+from Bio.Phylo.TreeConstruction import DistanceCalculator
+
 import numpy as np
 import argparse
+
+from scipy.cluster.hierarchy import linkage, cut_tree
+from scipy.spatial.distance import squareform
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import MiniBatchKMeans
@@ -209,6 +215,18 @@ def cluster_rows(rows: List[Result], k: int, seed: int = 0, val: string = "scd")
     labels = km.fit_predict(Xs)
     return labels
 
+def cluster_hier(fasta_path, k: int, seed: int) -> np.ndarray: 
+    aln = AlignIO.read(fasta_path, 'fasta')
+
+    calculator = DistanceCalculator('blosum62')
+    dist_matrix = calculator.get_distance(aln)
+
+    condensed_dist = squareform(dist_matrix)
+    Z = linkage(condensed_dist, method='complete')
+    labels = cut_tree(Z, n_clusters=k).flatten()
+
+    return labels
+
 def write_table(out_csv: Path, rows: List[Result], labels: np.ndarray) -> None:
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w") as f:
@@ -249,6 +267,9 @@ def main():
     for val in clusters:
         labels = cluster_rows(rows, k=K, seed=0, val=val)
         write_table(OUT_CSV / (val + ".csv"), rows, labels)
+
+    cluster_hier(FASTA, k=K, seed=0)
+    write_table(OUT_CSV / "hier.csv", rows, labels)
 
 
 if __name__ == "__main__":

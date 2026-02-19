@@ -1,6 +1,7 @@
 import os
-import hashlib
+from pathlib import Path
 
+import hashlib
 import argparse
 
 SEQ_FOLDER = "lanm_pipeline/mpnn/outputs/seqs"
@@ -25,7 +26,10 @@ def generate_outputs(seqs_folder, out_dir):
             path = os.path.join(root, file)
 
             with open(path) as f:
-                lines = [l.strip() for l in f if l.strip()]
+                try:
+                    lines = [l.strip() for l in f if l.strip()]
+                except: 
+                    return
 
             i = 0
             while i < len(lines):
@@ -44,6 +48,12 @@ def generate_outputs(seqs_folder, out_dir):
 
                     with open(fasta_path, "w") as out:
                         out.write(f">{h}\n{seq}\n")
+
+                    heatmap = Path(seqs_folder) / "heatmaps" / f"heatmap_{lines[i][len(lines[i]) - 1]}.png"
+                    raw_file = Path(seqs_folder) / "heatmaps" / "raw" / f"matrix_{lines[i][len(lines[i]) - 1]}.json"
+
+                    os.rename(heatmap, Path(seqs_folder) / "heatmaps" / f"{h}.png")
+                    os.rename(raw_file, Path(seqs_folder) / "heatmaps" / "raw" / f"{h}.json")
 
                     global_idx += 1
 

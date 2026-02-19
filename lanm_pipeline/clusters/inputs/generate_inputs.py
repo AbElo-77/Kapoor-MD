@@ -70,6 +70,6 @@ if __name__ == "__main__":
     AF_OUT_DIR = Path("lanm_pipeline/af_esm/outputs/structure_preds/")
     ESM_OUT_DIR = Path("lanm_pipeline/af_esm/outputs/residue_preds/")
     OUT_DIR = Path("lanm_pipeline/clusters/inputs/")
-    OUT_METRICS = Path("lanm_pipeline/clusters/inputs/analytics")
+    OUT_METRICS = Path("lanm_pipeline/clusters/inputs/metrics")
 
     main(FASTA_DIR, AF_OUT_DIR, ESM_OUT_DIR, OUT_DIR, OUT_METRICS)

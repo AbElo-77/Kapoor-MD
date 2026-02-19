@@ -51,8 +51,7 @@ def render_protein(pdb_path, ref_path, output_path):
     cmd.set_color("plddt_confident", [1.00, 0.86, 0.25])
     cmd.set_color("plddt_low",       [1.00, 0.49, 0.27])
     try:
-        cmd.spectrum("b", "plddt_low plddt_confident plddt_high plddt_very_high", 
-                     selection=obj_name, minimum=50, maximum=90)
+        cmd.spectrum("b", "plddt_low plddt_confident plddt_high plddt_very_high", minimum=50, maximum=90)
     except:
         cmd.color("gray70", obj_name)
 

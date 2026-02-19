@@ -236,10 +236,9 @@ def write_row_vs_loops(output_path: Path, combined_df: pd.DataFrame, rows_only_l
     loop_lookup = {r.header: r for r in rows_only_loops}
     
     fieldnames = [
-        'header', 'clusters-(scd, q_net)',
+        'header', 'clusters_(scd-q_net-hier)',
         'full_scd', 'loop_scd', 
-        'full_net_q', 'loop_net_q',
-        'full_nu', 'loop_nu'
+        'full_net_q', 'loop_net_q'
     ]
     
     with open(output_path, mode='w', newline='') as f:
@@ -253,17 +252,15 @@ def write_row_vs_loops(output_path: Path, combined_df: pd.DataFrame, rows_only_l
             if loop_res:
                 writer.writerow({
                     'header': header_id,
-                    'clusters-(scd, q_net)': row['combined_cluster'],
+                    'clusters_(scd-q_net-hier)': row['combined_cluster'],
                     'full_scd': round(row['scd'], 4),
                     'loop_scd': round(loop_res.scd, 4),
                     'full_net_q': row['net_q'],
                     'loop_net_q': loop_res.net_q,
-                    'full_nu': round(row['nu'], 4),
-                    'loop_nu': round(loop_res.nu, 4)
                 })
 
 def choose_representatives(rows_v_loops: pd.DataFrame, ref_metrics: Result, output_csv: Path):
-    features = ['full_scd', 'loop_scd', 'full_net_q', 'full_nu']
+    features = ['full_scd', 'loop_scd', 'full_net_q']
     scaler = StandardScaler()
     X = scaler.fit_transform(rows_v_loops[features])
 
@@ -274,7 +271,7 @@ def choose_representatives(rows_v_loops: pd.DataFrame, ref_metrics: Result, outp
         res['selection_reason'] = reason
         selections.append(res)
 
-    wt_vector = scaler.transform([[ref_metrics["scd"], 0, ref_metrics["net_q"], ref_metrics["nu"]]])
+    wt_vector = scaler.transform([[ref_metrics["scd"], 0, ref_metrics["net_q"]]])
     closest_idx, _ = pairwise_distances_argmin_min(wt_vector, X)
     add_selection(closest_idx[0], "Best Mimic")
 
@@ -327,6 +324,7 @@ def main():
 
     df_scd = pd.read_csv(CLUSTERS / "scd.csv")
     df_qnet = pd.read_csv(CLUSTERS / "q_net.csv")
+    df_hier = pd.read_csv(CLUSTERS / "hier.csv")
 
     combined_df = pd.merge(
         df_scd, 
@@ -334,8 +332,8 @@ def main():
         on='header', 
         suffixes=('_scd', '_qnet')
     )
-
-    combined_df['combined_cluster'] = list(zip(combined_df.cluster_scd, combined_df.cluster_qnet))
+  
+    combined_df['combined_cluster'] = list(zip(combined_df.cluster_scd, combined_df.cluster_qnet, df_hier.cluster))
 
     # --------------------------------------------
 
@@ -370,9 +368,7 @@ def main():
         "scd": row_ref.scd, 
         "scd_loop": row_ref_loops.scd, 
         "net_q": row_ref.net_q, 
-        "net_q_loop": row_ref_loops.net_q, 
-        "nu": row_ref.nu, 
-        "nu_loop": row_ref_loops.nu
+        "net_q_loop": row_ref_loops.net_q
     }
 
     with open(OUT_DIR / "reference.json", "w") as jf: 

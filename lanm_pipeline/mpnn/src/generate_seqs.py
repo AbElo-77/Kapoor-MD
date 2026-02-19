@@ -1,8 +1,14 @@
 import argparse
-import os
+import os, json
+from pathlib import Path
+
 import copy
 import torch
 import numpy as np
+
+import matplotlib as mpl
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 
 from lanm_pipeline.mpnn.src.ProteinMPNN.protein_mpnn_utils import (
     ProteinMPNN,
@@ -57,7 +63,7 @@ def main(PDB_PATH: str, OUT_DIR: str, NUM_SEQS: int, TEMPERATURE: float, SCORE_C
 
     protein = dataset[0]
 
-    fasta_path = os.path.join(OUT_DIR, "calmol_mpnn.fasta")
+    fasta_path = os.path.join(OUT_DIR, "test.fasta")
     fasta = open(fasta_path, "w")
 
     generated = 0
@@ -141,6 +147,26 @@ def main(PDB_PATH: str, OUT_DIR: str, NUM_SEQS: int, TEMPERATURE: float, SCORE_C
                 fasta.write(f">seq_{generated}\n{seq}\n")
                 generated += 1
 
+                probs = torch.nn.functional.softmax(log_probs[0], dim=-1).cpu().numpy()
+                probs_np = probs.T 
+
+                amino_acids = list("ACDEFGHIKLMNPQRSTVWY")
+
+                log_probs = log_probs.cpu().numpy().T
+                fig, ax = plt.subplots(figsize=(15, 6))
+                im = ax.imshow(log_probs, cmap='viridis', aspect='auto', interpolation='nearest')
+
+                ax.set_yticks(np.arange(len(amino_acids)))
+                ax.set_yticklabels(amino_acids, fontsize=8)
+                ax.set_xlabel("Position in Protein Sequence")
+                ax.set_title("Amino acid probabilities")
+
+                plt.tight_layout()
+                plt.savefig(Path(OUT_DIR) / "heatmaps" / f"heatmap_{generated - 1}.png", dpi=300)
+
+                with open(Path(OUT_DIR) / "heatmaps" / "raw" / f"matrix_{generated - 1}.json", 'w') as jf: 
+                    json.dump(probs_np.tolist(), jf, indent=4)
+
             batch_id += 1
             if batch_id % 100 == 0:
                 print(f"[MPNN] Generated {generated}/{NUM_SEQS}")
@@ -151,7 +177,7 @@ if __name__ == "__main__":
 
     PDB_PATH = "lanm_pipeline/mpnn/src/pdb/3CLN.pdb"
     OUT_DIR  = "lanm_pipeline/mpnn/outputs/seqs"
-    NUM_SEQS = 50
+    NUM_SEQS = 2
     TEMPERATURE = 0.1
     SCORE_CUTOFF = 1
 
