@@ -45,6 +45,7 @@ def main(mpnn_dir, cons_dir):
         json.dump(divergence, jf, indent=4)
 
 if __name__ == "__main__":
+    
     MPNN_DIR = Path("lanm_pipeline/mpnn/outputs/seqs/heatmaps/raw")
     CONS_DIR = Path("lanm_pipeline/clusters/inputs/analytics/conservation/raw")
 

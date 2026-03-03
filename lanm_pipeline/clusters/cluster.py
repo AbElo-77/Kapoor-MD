@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -183,7 +181,7 @@ def compute_result(header: str, seq: str, pdb_path: Path) -> Result:
 
 # --------------------------------------------
 
-def cluster_rows(rows: List[Result], k: int, seed: int = 0, val: string = "scd") -> np.ndarray:
+def cluster_rows(rows: List[Result], k: int, seed: int = 0, val: str = "scd") -> np.ndarray:
 
     if val == "scd":
         X = np.array([
@@ -242,34 +240,32 @@ def write_table(out_csv: Path, rows: List[Result], labels: np.ndarray) -> None:
 # --------------------------------------------
 
 def main():
-
-    FASTA: Path = Path("lanm_pipeline/clusters/inputs/top_seqs.fa")
     PDB_PATH: Path = Path("lanm_pipeline/af_esm/outputs/structure_preds")
     OUT_CSV: Path = Path("lanm_pipeline/clusters/clusters")
     K = 3
 
     argparser = argparse.ArgumentParser(description="Cluster sequences using SCD/SHD descriptors.")
-    argparser.add_argument("--fasta", default=FASTA, type=Path, help="FASTAs of sequences to cluster.")
     argparser.add_argument("--pdb_path", default=PDB_PATH, type=Path, help="PDB output folder.")
     argparser.add_argument("--out_csv", default=OUT_CSV, type=Path, help="Output CSV with descriptors + cluster labels.")
     argparser.add_argument("--k", type=int, default=K, help="Number of clusters for MiniBatchKMeans.")
+    argparser.add_argument("--hiers", type=int, default=5, help="Number of hierarchical clusters")
     args = argparser.parse_args()
 
-    FASTA = args.fasta
     OUT_CSV = args.out_csv
     K = args.k
+    hiers = args.hiers
 
-    rows: List[Result] = []
-    for header, seq in read_fasta(FASTA):
-        rows.append(compute_result(header, seq, PDB_PATH))
-    
-    clusters = ["scd", "q_net", "dssp"]
-    for val in clusters:
-        labels = cluster_rows(rows, k=K, seed=0, val=val)
-        write_table(OUT_CSV / (val + ".csv"), rows, labels)
+    for hier in range(hiers): 
+        fasta = OUT_CSV / f'hier_{hier}' / 'seqs.fa'
 
-    cluster_hier(FASTA, k=K, seed=0)
-    write_table(OUT_CSV / "hier.csv", rows, labels)
+        rows: List[Result] = []
+        for header, seq in read_fasta(fasta):
+            rows.append(compute_result(header, seq, PDB_PATH))
+        
+        clusters = ["scd", "q_net"]
+        for val in clusters:
+            labels = cluster_rows(rows, k=K, seed=0, val=val)
+            write_table(OUT_CSV / f'hier_{hier}' / (val + ".csv"), rows, labels)
 
 
 if __name__ == "__main__":

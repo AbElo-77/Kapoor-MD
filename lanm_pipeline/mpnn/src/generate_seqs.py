@@ -147,25 +147,28 @@ def main(PDB_PATH: str, OUT_DIR: str, NUM_SEQS: int, TEMPERATURE: float, SCORE_C
                 fasta.write(f">seq_{generated}\n{seq}\n")
                 generated += 1
 
-                probs = torch.nn.functional.softmax(log_probs[0], dim=-1).cpu().numpy()
-                probs_np = probs.T 
+                soft = torch.nn.functional.softmax(log_probs[0], dim=-1)
+                max_probs, _ = torch.max(soft, dim=-1)
+                max_probs_np = max_probs.cpu().numpy()
 
-                amino_acids = list("ACDEFGHIKLMNPQRSTVWY")
+                max_probs_row = max_probs_np.reshape(1, -1)
 
-                log_probs = log_probs.cpu().numpy().T
-                fig, ax = plt.subplots(figsize=(15, 6))
-                im = ax.imshow(log_probs, cmap='viridis', aspect='auto', interpolation='nearest')
+                fig, ax = plt.subplots(figsize=(15, 2)) 
+                ax.set_yticks([])
 
-                ax.set_yticks(np.arange(len(amino_acids)))
-                ax.set_yticklabels(amino_acids, fontsize=8)
                 ax.set_xlabel("Position in Protein Sequence")
-                ax.set_title("Amino acid probabilities")
+                ax.set_title("Confidence Per Position")
+
+                discrete_viridis = mpl.colormaps['viridis'].resampled(9)
+                im = ax.imshow(max_probs_row, cmap=discrete_viridis, aspect='auto', interpolation='nearest')
+                
+                fig.colorbar(im, ax=ax, orientation='horizontal', pad=0.3, label="Max Probability")
 
                 plt.tight_layout()
                 plt.savefig(Path(OUT_DIR) / "heatmaps" / f"heatmap_{generated - 1}.png", dpi=300)
 
                 with open(Path(OUT_DIR) / "heatmaps" / "raw" / f"matrix_{generated - 1}.json", 'w') as jf: 
-                    json.dump(probs_np.tolist(), jf, indent=4)
+                    json.dump(soft.tolist(), jf, indent=4)
 
             batch_id += 1
             if batch_id % 100 == 0:

@@ -266,26 +266,26 @@ def choose_representatives(rows_v_loops: pd.DataFrame, ref_metrics: Result, outp
 
     selections = []
 
-    def add_selection(idx, reason):
+    def add_selection(idx):
         res = rows_v_loops.iloc[idx].copy()
-        res['selection_reason'] = reason
         selections.append(res)
 
     wt_vector = scaler.transform([[ref_metrics["scd"], 0, ref_metrics["net_q"]]])
     closest_idx, _ = pairwise_distances_argmin_min(wt_vector, X)
-    add_selection(closest_idx[0], "Best Mimic")
 
-    add_selection(rows_v_loops['loop_scd'].idxmax(), "Max Loop SCD")
+    # Best Mimic
+    add_selection(closest_idx[0])
 
+    # Maximum SCD
+    add_selection(rows_v_loops['loop_scd'].idxmax())
+
+    # Largest Scaffold Difference
     rows_v_loops['scaffold_diff'] = rows_v_loops['full_scd'] - rows_v_loops['loop_scd']
-    add_selection(rows_v_loops['scaffold_diff'].idxmax(), "Max Scaffold Contribution")
+    add_selection(rows_v_loops['scaffold_diff'].idxmax())
 
+    # Closet Q
     rows_v_loops['q_dist'] = (rows_v_loops['full_net_q'] - ref_metrics["net_q"]).abs()
-    add_selection(rows_v_loops['q_dist'].idxmin(), "Closest Net Q")
-
-    centroid = X.mean(axis=0).reshape(1, -1)
-    medoid_idx, _ = pairwise_distances_argmin_min(centroid, X)
-    add_selection(medoid_idx[0], "Average Mimic")
+    add_selection(rows_v_loops['q_dist'].idxmin())
 
     final_df = pd.DataFrame(selections).drop_duplicates(subset=['header'])
     final_df.to_csv(output_csv, index=False)
@@ -296,64 +296,49 @@ def choose_representatives(rows_v_loops: pd.DataFrame, ref_metrics: Result, outp
 
 def main():
 
-    FASTA: Path = Path("lanm_pipeline/clusters/inputs/top_seqs.fa")
     CLUSTERS: Path = Path("lanm_pipeline/clusters/clusters")
     REF_PATH: Path = Path("lanm_pipeline/mpnn/src/pdb/3CLN.pdb")
-    OUT_DIR: Path = Path("lanm_pipeline/clusters/clusters/representatives")
+    OUT_DIR: Path = Path("lanm_pipeline/clusters/clusters")
 
     argparser = argparse.ArgumentParser(description="")
-    argparser.add_argument("--fasta", default=FASTA, type=Path, help="FASTAs of sequences to cluster.")
     argparser.add_argument("--clusters", default=CLUSTERS, type=Path, help="Directory containing cluster CSVs.")
     argparser.add_argument("--ref_path", default=REF_PATH, type=Path, help="Reference PDB for performing alignment.")
     argparser.add_argument("--out_dir", default=OUT_DIR, type=Path, help="Directory to output representative selections.")
+    argparser.add_argument("--hiers", type=int, default=5, help="Number of hierarchical clusters")
     args = argparser.parse_args()
 
-    FASTA = args.fasta
     CLUSTERS = args.clusters
     REF_PATH = args.ref_path
     OUT_DIR = args.out_dir
+    hiers = args.hiers
 
-    records = list(SeqIO.parse(REF_PATH, "pdb-seqres"))
-    row_ref = compute_result("3CLN", records[0].seq, REF_PATH)
+    for hier in range(hiers):
+        fasta = CLUSTERS / f'hier_{hier}' / "seqs.fa"
+        records = list(SeqIO.parse(REF_PATH, "pdb-seqres"))
+        row_ref = compute_result("3CLN", records[0].seq, REF_PATH)
 
-    binding_loops = [
-        range(20, 32), range(56, 68), 
-        range(93, 105), range(129, 141)
-    ]
-    binding_indices = {i for r in binding_loops for i in r}
+        binding_loops = [
+            range(20, 32), range(56, 68), 
+            range(93, 105), range(129, 141)
+        ]
+        binding_indices = {i for r in binding_loops for i in r}
 
-    df_scd = pd.read_csv(CLUSTERS / "scd.csv")
-    df_qnet = pd.read_csv(CLUSTERS / "q_net.csv")
-    df_hier = pd.read_csv(CLUSTERS / "hier.csv")
+        df_scd = pd.read_csv(CLUSTERS / f'hier_{hier}' / "scd.csv")
+        df_qnet = pd.read_csv(CLUSTERS / f'hier_{hier}' / "q_net.csv")
 
-    combined_df = pd.merge(
-        df_scd, 
-        df_qnet[['header', 'cluster']], 
-        on='header', 
-        suffixes=('_scd', '_qnet')
-    )
-  
-    combined_df['combined_cluster'] = list(zip(combined_df.cluster_scd, combined_df.cluster_qnet, df_hier.cluster))
+        combined_df = pd.merge(
+            df_scd, 
+            df_qnet[['header', 'cluster']], 
+            on='header', 
+            suffixes=('_scd', '_qnet')
+        )
+    
+        combined_df['combined_cluster'] = list(zip(combined_df.cluster_scd, combined_df.cluster_qnet))
 
-    # --------------------------------------------
-
-    modified_list = []
-    for idx, aa in enumerate(records[0].seq):
-        pos = idx + 1 
-        
-        if pos in binding_indices:
-            modified_list.append(aa)
-        else:
-            modified_list.append('G')
-            
-    seq_only_loops = "".join(modified_list)
-    row_ref_loops = compute_result("3CLN_loops", seq_only_loops, REF_PATH, dssp=False)
-
-    rows_only_loops: List[Result] = []
-    for header, seq in read_fasta(FASTA):
+        # --------------------------------------------
 
         modified_list = []
-        for idx, aa in enumerate(seq):
+        for idx, aa in enumerate(records[0].seq):
             pos = idx + 1 
             
             if pos in binding_indices:
@@ -362,22 +347,38 @@ def main():
                 modified_list.append('G')
                 
         seq_only_loops = "".join(modified_list)
-        rows_only_loops.append(compute_result(header, seq_only_loops, REF_PATH, dssp=False))
-    
-    ref_metrics = {
-        "scd": row_ref.scd, 
-        "scd_loop": row_ref_loops.scd, 
-        "net_q": row_ref.net_q, 
-        "net_q_loop": row_ref_loops.net_q
-    }
+        row_ref_loops = compute_result("3CLN_loops", seq_only_loops, REF_PATH, dssp=False)
 
-    with open(OUT_DIR / "reference.json", "w") as jf: 
-        json.dump(ref_metrics, jf, indent=4)
+        rows_only_loops: List[Result] = []
+        for header, seq in read_fasta(fasta):
 
-    write_row_vs_loops(OUT_DIR / "row_loops.csv", combined_df, rows_only_loops)
-    rows_v_loops = pd.read_csv(OUT_DIR / "row_loops.csv")
+            modified_list = []
+            for idx, aa in enumerate(seq):
+                pos = idx + 1 
+                
+                if pos in binding_indices:
+                    modified_list.append(aa)
+                else:
+                    modified_list.append('G')
+                    
+            seq_only_loops = "".join(modified_list)
+            rows_only_loops.append(compute_result(header, seq_only_loops, REF_PATH, dssp=False))
+        
+        ref_metrics = {
+            "scd": row_ref.scd, 
+            "scd_loop": row_ref_loops.scd, 
+            "net_q": row_ref.net_q, 
+            "net_q_loop": row_ref_loops.net_q
+        }
 
-    choose_representatives(rows_v_loops, ref_metrics, OUT_DIR / "representatives.csv")
+        with open(OUT_DIR / f'hier_{hier}' / "representatives" / "reference.json", "w") as jf: 
+            json.dump(ref_metrics, jf, indent=4)
+
+        (OUT_DIR / f'hier_{hier}' / "representatives").mkdir(parents=True, exist_ok=True)
+        write_row_vs_loops(OUT_DIR / f'hier_{hier}' / "representatives" / "row_loops.csv", combined_df, rows_only_loops)
+        rows_v_loops = pd.read_csv(OUT_DIR / f'hier_{hier}' / "representatives" / "row_loops.csv")
+
+        choose_representatives(rows_v_loops, ref_metrics, OUT_DIR / f'hier_{hier}' / "representatives" / "representatives.csv")
 
     # --------------------------------------------
     
